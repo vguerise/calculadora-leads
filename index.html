@@ -557,7 +557,7 @@ function parseData(csv) {
   };
 
   const iCamp  = idx(['nome da campanha','campaign name','campanha','campaign']);
-  const iDate  = idx(['dia','date','data','reporting starts','início do relatório','período']);
+  const iDate  = idx(['dia','date','data','reporting starts','início dos relatórios','início do relatório','período']);
   const iVerba = idx(['valor usado (brl)','valor gasto (brl)','amount spent (brl)','spend','gasto','custo']);
   const iLeads = idx(['leads','resultados','results','link clicks','cliques no link']);
   const iQual  = idx(['leads qualificados','qualified leads']);
@@ -687,17 +687,22 @@ function applySelection() {
   document.getElementById('period-bar').style.display = 'none';
   document.getElementById('meta-loading').style.display = 'flex';
 
+  // Sempre reseta campos opcionais para evitar defaults falsos
+  ['qual','vendas','ticket'].forEach(id => {
+    const el = document.getElementById(id);
+    el.value = 0;
+    el.classList.remove('auto-filled');
+  });
+
   const fill = (id, val) => {
-    if (val && val > 0) {
-      const el = document.getElementById(id);
-      el.value = Math.round(val * 100) / 100;
-      el.classList.add('auto-filled');
-    }
+    const el = document.getElementById(id);
+    el.value = Math.round(val * 100) / 100;
+    el.classList.add('auto-filled');
   };
-  fill('verba',  totals.verba);
-  fill('leads',  totals.leads);
-  fill('qual',   totals.qual);
-  fill('vendas', totals.vendas);
+  fill('verba', totals.verba);
+  fill('leads', totals.leads);
+  if (totals.qual   > 0) fill('qual',   totals.qual);
+  if (totals.vendas > 0) fill('vendas', totals.vendas);
   if (totals.receita > 0 && totals.vendas > 0) fill('ticket', totals.receita / totals.vendas);
 
   document.getElementById('filled-badge').style.display = 'inline-flex';
