@@ -1,0 +1,814 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Calculadora de Leads Qualificados</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0a; --surface: #111111; --surface2: #181818; --border: #222222;
+    --green: #00e676; --green-dim: #00c85320; --amber: #ffab00; --amber-dim: #ffab0015;
+    --red: #ff3d57; --red-dim: #ff3d5715; --blue: #2979ff; --text: #f0f0f0;
+    --muted: #555; --label: #888;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  @keyframes spin  { to { transform: rotate(360deg); } }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+  @keyframes slideDown { from{opacity:0;transform:translateY(-6px)} to{opacity:1;transform:translateY(0)} }
+
+  body { background:var(--bg); color:var(--text); font-family:'DM Sans',sans-serif; font-size:14px; min-height:100vh; padding:24px 16px; }
+
+  header { text-align:center; margin-bottom:28px; }
+  header h1 { font-family:'Bebas Neue',sans-serif; font-size:clamp(28px,6vw,48px); letter-spacing:2px; line-height:1; }
+  header h1 span { color:var(--green); }
+  header p { color:var(--label); margin-top:6px; font-size:13px; }
+
+  .grid { display:grid; gap:12px; max-width:800px; margin:0 auto; }
+
+  .card { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:18px; }
+
+  .section-label { font-size:10px; font-weight:600; letter-spacing:2px; text-transform:uppercase; color:var(--label); margin-bottom:14px; display:flex; align-items:center; gap:7px; }
+
+  .inputs-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  .field label { display:block; font-size:11px; color:var(--label); margin-bottom:6px; letter-spacing:.5px; }
+  .field input { width:100%; background:var(--surface2); border:1px solid var(--border); border-radius:8px; padding:10px 14px; color:var(--text); font-family:'DM Sans',sans-serif; font-size:15px; font-weight:500; outline:none; transition:border-color .2s,background .2s; }
+  .field input:focus { border-color:var(--green); background:#141414; }
+  .field input.auto-filled { border-color:#2979ff60; background:#2979ff08; }
+  .prefix-wrap { position:relative; }
+  .prefix-wrap span { position:absolute; left:12px; top:50%; transform:translateY(-50%); color:var(--label); font-size:13px; }
+  .prefix-wrap input { padding-left:36px; }
+
+  .period-bar {
+    display:none;
+    align-items:center;
+    gap:8px;
+    padding:8px 12px;
+    background:#ffab0010;
+    border:1px solid #ffab0025;
+    border-radius:8px;
+    margin-bottom:14px;
+    font-size:12px;
+    color:var(--amber);
+    animation: slideDown .3s ease;
+  }
+  .period-bar svg { flex-shrink:0; }
+
+  .campaign-selector { display:none; animation:slideDown .3s ease; }
+  .camp-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
+  .camp-header-label { font-size:11px; color:var(--label); text-transform:uppercase; letter-spacing:1px; }
+  .camp-actions { display:flex; gap:8px; }
+  .camp-action-btn { background:var(--surface2); border:1px solid var(--border); border-radius:5px; padding:4px 10px; font-size:11px; color:var(--label); cursor:pointer; font-family:'DM Sans',sans-serif; transition:border-color .15s,color .15s; }
+  .camp-action-btn:hover { border-color:var(--green); color:var(--green); }
+
+  .camp-list { display:flex; flex-direction:column; gap:6px; max-height:220px; overflow-y:auto; padding-right:2px; }
+  .camp-list::-webkit-scrollbar { width:4px; }
+  .camp-list::-webkit-scrollbar-track { background:transparent; }
+  .camp-list::-webkit-scrollbar-thumb { background:var(--border); border-radius:2px; }
+
+  .camp-item {
+    display:flex; align-items:center; gap:10px;
+    padding:9px 12px;
+    background:var(--surface2); border:1px solid var(--border); border-radius:8px;
+    cursor:pointer; transition:border-color .15s,background .15s;
+    user-select:none;
+  }
+  .camp-item:hover { border-color:#444; }
+  .camp-item.selected { border-color:#2979ff50; background:#2979ff08; }
+
+  .camp-check {
+    width:16px; height:16px; border-radius:4px; border:1.5px solid var(--border);
+    display:flex; align-items:center; justify-content:center; flex-shrink:0;
+    transition:background .15s, border-color .15s;
+  }
+  .camp-item.selected .camp-check { background:var(--blue); border-color:var(--blue); }
+
+  .camp-name { font-size:13px; font-weight:500; flex:1; }
+  .camp-meta { display:flex; gap:10px; margin-left:auto; }
+  .camp-tag { font-size:10px; color:var(--muted); white-space:nowrap; }
+  .camp-tag.green { color:var(--green); }
+
+  .apply-btn {
+    margin-top:12px; width:100%; padding:10px;
+    background:var(--blue); border:none; border-radius:8px;
+    color:#fff; font-family:'DM Sans',sans-serif; font-size:13px; font-weight:600;
+    cursor:pointer; transition:opacity .2s;
+  }
+  .apply-btn:hover { opacity:.85; }
+  .apply-btn:disabled { opacity:.4; cursor:default; }
+
+  .kpi-strip { display:grid; grid-template-columns:repeat(2,1fr); gap:10px; }
+  .kpi { background:var(--surface2); border:1px solid var(--border); border-radius:10px; padding:14px; position:relative; overflow:hidden; }
+  .kpi::before { content:''; position:absolute; top:0; left:0; right:0; height:2px; background:var(--accent,var(--green)); }
+  .kpi-label { font-size:10px; letter-spacing:1px; text-transform:uppercase; color:var(--label); margin-bottom:6px; }
+  .kpi-value { font-family:'Bebas Neue',sans-serif; font-size:26px; letter-spacing:1px; line-height:1; color:var(--accent,var(--green)); }
+  .kpi-sub { font-size:11px; color:var(--muted); margin-top:3px; }
+  .kpi.amber { --accent:var(--amber); }
+  .kpi.red   { --accent:var(--red); }
+  .kpi.blue  { --accent:var(--blue); }
+
+  .funil { display:flex; flex-direction:column; gap:6px; margin-top:4px; }
+  .funil-row { display:flex; align-items:center; gap:10px; }
+  .funil-label { font-size:11px; color:var(--label); width:130px; flex-shrink:0; }
+  .funil-bar-wrap { flex:1; height:22px; background:var(--surface2); border-radius:4px; overflow:hidden; }
+  .funil-bar { height:100%; border-radius:4px; display:flex; align-items:center; padding-left:8px; font-size:11px; font-weight:600; color:#000; transition:width .6s cubic-bezier(.4,0,.2,1); min-width:32px; }
+  .funil-bar.total  { background:#2979ff; color:#fff; }
+  .funil-bar.qual   { background:var(--green); }
+  .funil-bar.vendas { background:var(--amber); }
+
+  .diagnostico { display:flex; flex-direction:column; gap:8px; }
+  .diag-item { display:flex; align-items:flex-start; gap:10px; padding:10px 12px; border-radius:8px; font-size:12px; line-height:1.5; border:1px solid transparent; }
+  .diag-item.ok   { background:var(--green-dim); border-color:#00e67620; color:#a0ffcc; }
+  .diag-item.warn { background:var(--amber-dim); border-color:#ffab0030; color:#ffd080; }
+  .diag-item.bad  { background:var(--red-dim);   border-color:#ff3d5730; color:#ff8a96; }
+  .diag-dot { font-size:14px; flex-shrink:0; margin-top:1px; }
+
+  .roas-gauge { text-align:center; padding:10px 0 4px; }
+  .roas-big { font-family:'Bebas Neue',sans-serif; font-size:56px; letter-spacing:2px; line-height:1; transition:color .4s; }
+  .roas-label { font-size:11px; letter-spacing:2px; text-transform:uppercase; color:var(--label); margin-top:4px; }
+  .divider { height:1px; background:var(--border); margin:4px 0; }
+
+  .meta-drop { border:2px dashed var(--border); border-radius:10px; padding:28px 20px; text-align:center; cursor:pointer; transition:border-color .2s,background .2s; display:flex; flex-direction:column; align-items:center; gap:10px; }
+  .meta-drop:hover, .meta-drop.drag-over { border-color:var(--green); background:var(--green-dim); }
+  .meta-btn { margin-top:4px; padding:7px 18px; background:#1877f215; border:1px solid #1877f230; border-radius:6px; color:#5b9bd5; font-size:12px; font-weight:500; font-family:'DM Sans',sans-serif; cursor:pointer; }
+
+  .load-step { padding:8px 12px; border-radius:6px; font-size:12px; color:var(--muted); background:var(--surface2); border:1px solid var(--border); transition:all .3s; }
+  .load-step::before { content:attr(data-label); }
+  .load-step.active { color:var(--green); border-color:#00e67640; background:var(--green-dim); animation:pulse 1.2s ease-in-out infinite; }
+  .load-step.done { color:var(--muted); opacity:.5; animation:none; }
+
+  .meta-report { font-size:13px; line-height:1.7; color:#ccc; }
+  .meta-report .rep-h3 { font-family:'Bebas Neue',sans-serif; font-size:16px; letter-spacing:1px; color:var(--text); margin:18px 0 8px; padding-bottom:6px; border-bottom:1px solid var(--border); }
+  .meta-report ul { padding-left:16px; margin:6px 0; }
+  .meta-report li { margin-bottom:4px; color:#bbb; }
+  .meta-report strong { color:var(--text); font-weight:600; }
+  .meta-report p { margin-bottom:6px; }
+
+  .filled-badge { display:inline-flex; align-items:center; gap:5px; font-size:10px; padding:3px 8px; background:#2979ff15; border:1px solid #2979ff30; border-radius:20px; color:#5b9bd5; margin-left:auto; }
+
+  #meta-error { display:none; margin-top:10px; padding:10px 12px; background:var(--red-dim); border:1px solid #ff3d5730; border-radius:8px; color:#ff8a96; font-size:12px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>CALCULADORA DE <span>LEADS QUALIFICADOS</span></h1>
+  <p>Faça upload da planilha do Meta Ads ou preencha manualmente</p>
+</header>
+
+<div class="grid">
+
+  <!-- UPLOAD -->
+  <div class="card">
+    <div class="section-label">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#5b9bd5" stroke-width="2.5"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/></svg>
+      Meta Ads — Upload de Planilha
+    </div>
+
+    <div class="meta-drop" id="meta-drop">
+      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#444" stroke-width="1.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+      <div style="font-size:14px;color:var(--label)">Arraste ou clique para enviar a planilha</div>
+      <div style="font-size:11px;color:var(--muted)">CSV ou XLSX exportado do Meta Ads Manager</div>
+      <button class="meta-btn" onclick="event.stopPropagation();document.getElementById('meta-file-input').click()">Selecionar arquivo</button>
+    </div>
+    <input type="file" id="meta-file-input" accept=".csv,.xlsx,.xls" style="display:none">
+    <div id="meta-error"></div>
+
+    <div class="period-bar" id="period-bar">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+      <span id="period-text">—</span>
+    </div>
+
+    <div class="campaign-selector" id="campaign-selector">
+      <div class="camp-header">
+        <span class="camp-header-label">Selecione as campanhas</span>
+        <div class="camp-actions">
+          <button class="camp-action-btn" onclick="selectAll()">Todas</button>
+          <button class="camp-action-btn" onclick="selectNone()">Nenhuma</button>
+        </div>
+      </div>
+      <div class="camp-list" id="camp-list"></div>
+      <button class="apply-btn" id="apply-btn" onclick="applySelection()">Aplicar seleção e analisar</button>
+    </div>
+
+    <div id="meta-loading" style="display:none;flex-direction:column;align-items:center;gap:14px;padding:24px 0">
+      <div style="width:34px;height:34px;border:3px solid var(--border);border-top-color:var(--green);border-radius:50%;animation:spin 0.8s linear infinite"></div>
+      <div style="display:flex;flex-direction:column;gap:6px;width:100%;max-width:300px">
+        <div class="load-step active" id="ls1" data-label="📂 Lendo planilha..."></div>
+        <div class="load-step" id="ls2" data-label="📋 Detectando campanhas e período..."></div>
+        <div class="load-step" id="ls3" data-label="📊 Preenchendo calculadora..."></div>
+        <div class="load-step" id="ls4" data-label="🤖 Gerando análise IA..."></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- INPUTS -->
+  <div class="card">
+    <div class="section-label">
+      Dados da Campanha
+      <span class="filled-badge" id="filled-badge" style="display:none">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+        Preenchido via planilha
+      </span>
+    </div>
+    <div class="inputs-grid">
+      <div class="field">
+        <label>VERBA INVESTIDA</label>
+        <div class="prefix-wrap"><span>R$</span><input type="number" id="verba" value="5000" oninput="calc()"></div>
+      </div>
+      <div class="field">
+        <label>TOTAL DE LEADS</label>
+        <input type="number" id="leads" value="250" oninput="calc()">
+      </div>
+      <div class="field">
+        <label>LEADS QUALIFICADOS</label>
+        <input type="number" id="qual" value="40" oninput="calc()">
+      </div>
+      <div class="field">
+        <label>VENDAS REALIZADAS</label>
+        <input type="number" id="vendas" value="20" oninput="calc()">
+      </div>
+      <div class="field">
+        <label>TICKET MÉDIO</label>
+        <div class="prefix-wrap"><span>R$</span><input type="number" id="ticket" value="1000" oninput="calc()"></div>
+      </div>
+      <div class="field">
+        <label>CPL ALVO (META)</label>
+        <div class="prefix-wrap"><span>R$</span><input type="number" id="cpl_alvo" value="80" oninput="calc()"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- KPIs -->
+  <div class="card">
+    <div class="section-label">Métricas-Chave</div>
+    <div class="kpi-strip">
+      <div class="kpi">
+        <div class="kpi-label">CPL Total</div>
+        <div class="kpi-value" id="cpl_total">—</div>
+        <div class="kpi-sub">por lead gerado</div>
+      </div>
+      <div class="kpi amber">
+        <div class="kpi-label">CPL Qualificado</div>
+        <div class="kpi-value" id="cpl_qual">—</div>
+        <div class="kpi-sub">por lead de qualidade</div>
+      </div>
+      <div class="kpi blue">
+        <div class="kpi-label">Receita Gerada</div>
+        <div class="kpi-value" id="receita">—</div>
+        <div class="kpi-sub">total de vendas</div>
+      </div>
+      <div class="kpi red">
+        <div class="kpi-label">Custo por Venda</div>
+        <div class="kpi-value" id="cpv">—</div>
+        <div class="kpi-sub">investido por fechamento</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ROAS + TAXAS -->
+  <div class="card">
+    <div class="inputs-grid" style="align-items:center">
+      <div class="roas-gauge">
+        <div class="roas-big" id="roas_val">—</div>
+        <div class="roas-label">ROAS</div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <div>
+          <div style="font-size:10px;letter-spacing:1px;color:var(--label);text-transform:uppercase;margin-bottom:2px">Taxa Lead → Qualif.</div>
+          <div style="font-family:'Bebas Neue';font-size:22px;color:var(--green)" id="taxa_lq">—</div>
+        </div>
+        <div class="divider"></div>
+        <div>
+          <div style="font-size:10px;letter-spacing:1px;color:var(--label);text-transform:uppercase;margin-bottom:2px">Taxa Qualif. → Venda</div>
+          <div style="font-family:'Bebas Neue';font-size:22px;color:var(--amber)" id="taxa_qv">—</div>
+        </div>
+        <div class="divider"></div>
+        <div>
+          <div style="font-size:10px;letter-spacing:1px;color:var(--label);text-transform:uppercase;margin-bottom:2px">Taxa Lead → Venda</div>
+          <div style="font-family:'Bebas Neue';font-size:22px;color:var(--blue)" id="taxa_lv">—</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- FUNIL -->
+  <div class="card">
+    <div class="section-label">Funil de Conversão</div>
+    <div class="funil">
+      <div class="funil-row">
+        <div class="funil-label">Leads Totais</div>
+        <div class="funil-bar-wrap"><div class="funil-bar total" id="bar_leads" style="width:100%"></div></div>
+      </div>
+      <div class="funil-row">
+        <div class="funil-label">Qualificados</div>
+        <div class="funil-bar-wrap"><div class="funil-bar qual" id="bar_qual" style="width:50%"></div></div>
+      </div>
+      <div class="funil-row">
+        <div class="funil-label">Vendas</div>
+        <div class="funil-bar-wrap"><div class="funil-bar vendas" id="bar_vendas" style="width:20%"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- DIAGNÓSTICO -->
+  <div class="card">
+    <div class="section-label">Diagnóstico Automático</div>
+    <div class="diagnostico" id="diags"></div>
+  </div>
+
+  <!-- RELATÓRIO IA -->
+  <div class="card" id="meta-result" style="display:none">
+    <div class="section-label" style="justify-content:space-between">
+      <span style="display:flex;align-items:center;gap:7px">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2.5"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+        Análise IA — Meta Ads
+      </span>
+      <button id="meta-reset" style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:4px 12px;color:var(--label);font-size:11px;cursor:pointer;font-family:'DM Sans',sans-serif">↩ Nova planilha</button>
+    </div>
+    <div id="meta-report-content" class="meta-report"></div>
+  </div>
+
+</div>
+
+<script>
+// ─── STATE ────────────────────────────────────────────────────────────────────
+let parsedRows    = [];
+let parsedHeaders = [];
+let allCampaigns  = [];
+let selectedCamps = new Set();
+let rawCSV        = '';
+
+// ─── CALCULADORA ─────────────────────────────────────────────────────────────
+function fmt(v, prefix='R$ ') {
+  if (v >= 1000) return prefix + (v/1000).toFixed(1) + 'k';
+  return prefix + v.toFixed(0);
+}
+
+function calc() {
+  const verba    = parseFloat(document.getElementById('verba').value)    || 0;
+  const leads    = parseFloat(document.getElementById('leads').value)    || 1;
+  const qual     = parseFloat(document.getElementById('qual').value)     || 1;
+  const vendas   = parseFloat(document.getElementById('vendas').value)   || 0;
+  const ticket   = parseFloat(document.getElementById('ticket').value)   || 0;
+  const cpl_alvo = parseFloat(document.getElementById('cpl_alvo').value) || 80;
+
+  const cpl_total = verba / leads;
+  const cpl_qual  = verba / qual;
+  const receita   = vendas * ticket;
+  const cpv       = vendas > 0 ? verba / vendas : 0;
+  const roas      = verba > 0 ? receita / verba : 0;
+  const taxa_lq   = (qual / leads) * 100;
+  const taxa_qv   = (vendas / qual) * 100;
+  const taxa_lv   = (vendas / leads) * 100;
+
+  document.getElementById('cpl_total').textContent = fmt(cpl_total);
+  document.getElementById('cpl_qual').textContent  = fmt(cpl_qual);
+  document.getElementById('receita').textContent   = fmt(receita);
+  document.getElementById('cpv').textContent       = cpv > 0 ? fmt(cpv) : '—';
+
+  const roasEl = document.getElementById('roas_val');
+  roasEl.textContent = roas.toFixed(2) + 'x';
+  roasEl.style.color = roas >= 3 ? 'var(--green)' : roas >= 1.5 ? 'var(--amber)' : 'var(--red)';
+
+  document.getElementById('taxa_lq').textContent = taxa_lq.toFixed(1) + '%';
+  document.getElementById('taxa_qv').textContent = taxa_qv.toFixed(1) + '%';
+  document.getElementById('taxa_lv').textContent = taxa_lv.toFixed(1) + '%';
+
+  document.getElementById('bar_leads').textContent  = Math.round(leads);
+  document.getElementById('bar_qual').textContent   = Math.round(qual);
+  document.getElementById('bar_vendas').textContent = Math.round(vendas);
+  document.getElementById('bar_qual').style.width   = Math.max(6, taxa_lq) + '%';
+  document.getElementById('bar_vendas').style.width = Math.max(4, taxa_lv * 3) + '%';
+
+  const diags = [];
+  if (cpl_qual <= cpl_alvo) diags.push({cls:'ok',  icon:'✅', msg:`CPL qualificado (${fmt(cpl_qual)}) dentro da meta de ${fmt(cpl_alvo)}.`});
+  else                       diags.push({cls:'bad', icon:'🚨', msg:`CPL qualificado (${fmt(cpl_qual)}) acima da meta de ${fmt(cpl_alvo)}. Revise segmentação ou criativo.`});
+
+  if      (taxa_lq < 10) diags.push({cls:'bad',  icon:'⚠️', msg:`Apenas ${taxa_lq.toFixed(1)}% dos leads são qualificados. Gargalo — revise isca ou formulário.`});
+  else if (taxa_lq < 25) diags.push({cls:'warn', icon:'⚡', msg:`Taxa de qualificação de ${taxa_lq.toFixed(1)}% razoável, mas há espaço para melhorar.`});
+  else                   diags.push({cls:'ok',   icon:'✅', msg:`Taxa de qualificação de ${taxa_lq.toFixed(1)}% saudável.`});
+
+  if      (taxa_qv < 20) diags.push({cls:'bad',  icon:'🚨', msg:`Fechamento de ${taxa_qv.toFixed(1)}% dos qualificados. Gargalo em vendas.`});
+  else if (taxa_qv < 40) diags.push({cls:'warn', icon:'⚡', msg:`Fechamento de ${taxa_qv.toFixed(1)}%. Tente follow-up mais estruturado.`});
+  else                   diags.push({cls:'ok',   icon:'✅', msg:`Fechamento de ${taxa_qv.toFixed(1)}% — excelente.`});
+
+  if      (roas < 1) diags.push({cls:'bad',  icon:'🔴', msg:`ROAS de ${roas.toFixed(2)}x — prejuízo. Pause antes de escalar.`});
+  else if (roas < 2) diags.push({cls:'warn', icon:'🟡', msg:`ROAS de ${roas.toFixed(2)}x — positivo mas apertado. Otimize antes de escalar.`});
+  else               diags.push({cls:'ok',   icon:'🟢', msg:`ROAS de ${roas.toFixed(2)}x — lucrativo. Potencial de escala.`});
+
+  document.getElementById('diags').innerHTML = diags.map(d =>
+    `<div class="diag-item ${d.cls}"><span class="diag-dot">${d.icon}</span><span>${d.msg}</span></div>`
+  ).join('');
+}
+calc();
+
+// ─── UPLOAD ───────────────────────────────────────────────────────────────────
+const dropEl = document.getElementById('meta-drop');
+dropEl.addEventListener('click', () => document.getElementById('meta-file-input').click());
+dropEl.addEventListener('dragover', e => { e.preventDefault(); dropEl.classList.add('drag-over'); });
+dropEl.addEventListener('dragleave', () => dropEl.classList.remove('drag-over'));
+dropEl.addEventListener('drop', e => { e.preventDefault(); dropEl.classList.remove('drag-over'); if(e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]); });
+document.getElementById('meta-file-input').addEventListener('change', e => { if(e.target.files[0]) handleFile(e.target.files[0]); });
+document.getElementById('meta-reset').addEventListener('click', resetAll);
+
+function resetAll() {
+  document.getElementById('meta-file-input').value = '';
+  document.getElementById('meta-result').style.display = 'none';
+  document.getElementById('meta-loading').style.display = 'none';
+  document.getElementById('campaign-selector').style.display = 'none';
+  document.getElementById('period-bar').style.display = 'none';
+  dropEl.style.display = 'flex';
+  document.getElementById('filled-badge').style.display = 'none';
+  document.querySelectorAll('.field input').forEach(i => i.classList.remove('auto-filled'));
+  parsedRows = []; allCampaigns = []; selectedCamps = new Set(); rawCSV = '';
+}
+
+function setStep(n) {
+  for (let i=1;i<=4;i++) {
+    const el = document.getElementById('ls'+i);
+    el.classList.remove('active','done');
+    if (i < n) el.classList.add('done');
+    if (i === n) el.classList.add('active');
+  }
+}
+
+function handleFile(file) {
+  const ext = file.name.substring(file.name.lastIndexOf('.')).toLowerCase();
+  if (!['.csv','.xlsx','.xls'].includes(ext)) { showError('Arquivo inválido. Use CSV ou XLSX do Meta Ads Manager.'); return; }
+
+  dropEl.style.display = 'none';
+  document.getElementById('meta-loading').style.display = 'flex';
+  setStep(1);
+
+  const processCSV = (csv) => {
+    rawCSV = csv;
+    setStep(2);
+    parseData(csv);
+  };
+
+  const reader = new FileReader();
+  if (ext === '.csv') {
+    reader.onload = e => processCSV(e.target.result);
+    reader.readAsText(file,'UTF-8');
+  } else {
+    const loadXLSX = () => {
+      reader.onload = e => {
+        const wb = window.XLSX.read(e.target.result,{type:'array'});
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        processCSV(window.XLSX.utils.sheet_to_csv(ws));
+      };
+      reader.readAsArrayBuffer(file);
+    };
+    if (!window.XLSX) {
+      const s = document.createElement('script');
+      s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+      s.onload = loadXLSX;
+      document.head.appendChild(s);
+    } else { loadXLSX(); }
+  }
+}
+
+// ─── PARSE CSV ────────────────────────────────────────────────────────────────
+function parseCSVLine(line) {
+  const result=[]; let cur='', inQ=false;
+  for (let i=0;i<line.length;i++) {
+    const c=line[i];
+    if (c==='"') { inQ=!inQ; }
+    else if ((c===','||c===';')&&!inQ) { result.push(cur.trim()); cur=''; }
+    else { cur+=c; }
+  }
+  result.push(cur.trim());
+  return result;
+}
+
+function cleanNum(str) {
+  if (!str) return NaN;
+  const s = str.replace(/[R$\s]/g,'').replace(/\./g,'').replace(',','.').trim();
+  return parseFloat(s);
+}
+
+function parseData(csv) {
+  const lines = csv.split('\n').filter(l => l.trim());
+  if (lines.length < 2) { showError('Planilha sem dados suficientes.'); resetDropzone(); return; }
+
+  parsedHeaders = parseCSVLine(lines[0]).map(h => h.toLowerCase().trim().replace(/"/g,''));
+
+  const idx = (aliases) => {
+    for (const a of aliases) {
+      const i = parsedHeaders.indexOf(a);
+      if (i >= 0) return i;
+    }
+    return -1;
+  };
+
+  const iCamp  = idx(['nome da campanha','campaign name','campanha','campaign']);
+  const iDate  = idx(['dia','date','data','reporting starts','início do relatório','período']);
+  const iVerba = idx(['valor usado (brl)','valor gasto (brl)','amount spent (brl)','spend','gasto','custo']);
+  const iLeads = idx(['leads','resultados','results','link clicks','cliques no link']);
+  const iQual  = idx(['leads qualificados','qualified leads']);
+  const iVend  = idx(['compras','purchases','conversões','conversions','vendas']);
+  const iRec   = idx(['valor de conversão de compras (brl)','purchase conversion value (brl)','receita','revenue','valor de conversão']);
+
+  parsedRows = [];
+  const dates = [];
+
+  for (let i=1; i<lines.length; i++) {
+    const v = parseCSVLine(lines[i]);
+    if (v.length < 2) continue;
+    const row = {
+      campaign : iCamp >= 0 ? (v[iCamp]||'').replace(/"/g,'').trim() : 'Campanha',
+      date     : iDate >= 0 ? (v[iDate]||'').replace(/"/g,'').trim() : '',
+      verba    : iVerba >= 0 ? (cleanNum(v[iVerba])||0) : 0,
+      leads    : iLeads >= 0 ? (cleanNum(v[iLeads])||0) : 0,
+      qual     : iQual  >= 0 ? (cleanNum(v[iQual]) ||0) : 0,
+      vendas   : iVend  >= 0 ? (cleanNum(v[iVend]) ||0) : 0,
+      receita  : iRec   >= 0 ? (cleanNum(v[iRec])  ||0) : 0,
+    };
+    parsedRows.push(row);
+    if (row.date) dates.push(row.date);
+  }
+
+  const campSet = new Set(parsedRows.map(r => r.campaign).filter(Boolean));
+  allCampaigns = [...campSet].sort();
+  selectedCamps = new Set(allCampaigns);
+
+  showPeriod(dates);
+  buildCampList();
+
+  document.getElementById('meta-loading').style.display = 'none';
+  document.getElementById('campaign-selector').style.display = 'block';
+}
+
+function showPeriod(dates) {
+  if (!dates.length) return;
+  const parsed = dates.map(d => {
+    let dt = new Date(d);
+    if (!isNaN(dt)) return dt;
+    const m = d.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})/);
+    if (m) return new Date(`${m[3].length===2?'20'+m[3]:m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`);
+    return null;
+  }).filter(Boolean);
+
+  if (!parsed.length) return;
+
+  const min = new Date(Math.min(...parsed));
+  const max = new Date(Math.max(...parsed));
+  const fmt = d => d.toLocaleDateString('pt-BR', {day:'2-digit',month:'short',year:'numeric'});
+
+  const bar = document.getElementById('period-bar');
+  document.getElementById('period-text').textContent =
+    min.toDateString() === max.toDateString()
+      ? `Período: ${fmt(min)}`
+      : `Período: ${fmt(min)} → ${fmt(max)}`;
+  bar.style.display = 'flex';
+}
+
+// ─── CAMPAIGN LIST UI ─────────────────────────────────────────────────────────
+function buildCampList() {
+  const list = document.getElementById('camp-list');
+  list.innerHTML = '';
+
+  allCampaigns.forEach(name => {
+    const rows = parsedRows.filter(r => r.campaign === name);
+    const verba = rows.reduce((s,r)=>s+r.verba,0);
+    const leads = rows.reduce((s,r)=>s+r.leads,0);
+
+    const item = document.createElement('div');
+    item.className = 'camp-item selected';
+    item.dataset.name = name;
+    item.innerHTML = `
+      <div class="camp-check">
+        <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.5"><polyline points="20 6 9 17 4 12"/></svg>
+      </div>
+      <div class="camp-name">${name}</div>
+      <div class="camp-meta">
+        ${verba > 0 ? `<span class="camp-tag">R$ ${verba.toFixed(0)}</span>` : ''}
+        ${leads > 0 ? `<span class="camp-tag green">${Math.round(leads)} leads</span>` : ''}
+      </div>`;
+    item.addEventListener('click', () => toggleCamp(item, name));
+    list.appendChild(item);
+  });
+
+  updateApplyBtn();
+}
+
+function toggleCamp(item, name) {
+  if (selectedCamps.has(name)) {
+    selectedCamps.delete(name);
+    item.classList.remove('selected');
+  } else {
+    selectedCamps.add(name);
+    item.classList.add('selected');
+  }
+  updateApplyBtn();
+}
+
+function selectAll()  { allCampaigns.forEach(n => { selectedCamps.add(n); document.querySelectorAll('.camp-item').forEach(el => el.classList.add('selected')); }); updateApplyBtn(); }
+function selectNone() { selectedCamps.clear(); document.querySelectorAll('.camp-item').forEach(el => el.classList.remove('selected')); updateApplyBtn(); }
+
+function updateApplyBtn() {
+  const btn = document.getElementById('apply-btn');
+  const n = selectedCamps.size;
+  btn.disabled = n === 0;
+  btn.textContent = n === 0 ? 'Selecione ao menos 1 campanha'
+    : n === allCampaigns.length ? `Analisar todas as campanhas (${n})`
+    : `Analisar ${n} campanha${n>1?'s':''} selecionada${n>1?'s':''}`;
+}
+
+// ─── APPLY SELECTION ─────────────────────────────────────────────────────────
+function applySelection() {
+  const filteredRows = parsedRows.filter(r => selectedCamps.has(r.campaign));
+
+  const totals = {
+    verba  : filteredRows.reduce((s,r)=>s+r.verba,  0),
+    leads  : filteredRows.reduce((s,r)=>s+r.leads,  0),
+    qual   : filteredRows.reduce((s,r)=>s+r.qual,   0),
+    vendas : filteredRows.reduce((s,r)=>s+r.vendas, 0),
+    receita: filteredRows.reduce((s,r)=>s+r.receita,0),
+  };
+
+  setStep(3);
+  document.getElementById('campaign-selector').style.display = 'none';
+  document.getElementById('period-bar').style.display = 'none';
+  document.getElementById('meta-loading').style.display = 'flex';
+
+  const fill = (id, val) => {
+    if (val && val > 0) {
+      const el = document.getElementById(id);
+      el.value = Math.round(val * 100) / 100;
+      el.classList.add('auto-filled');
+    }
+  };
+  fill('verba',  totals.verba);
+  fill('leads',  totals.leads);
+  fill('qual',   totals.qual);
+  fill('vendas', totals.vendas);
+  if (totals.receita > 0 && totals.vendas > 0) fill('ticket', totals.receita / totals.vendas);
+
+  document.getElementById('filled-badge').style.display = 'inline-flex';
+  calc();
+
+  const campLines  = rawCSV.split('\n').filter(l => l.trim());
+  const header     = campLines[0];
+  const iCamp      = parseCSVLine(header).map(h=>h.toLowerCase().trim()).indexOf(
+    ['nome da campanha','campaign name','campanha','campaign'].find(a => parseCSVLine(header).map(h=>h.toLowerCase().trim()).includes(a)) || '__none__'
+  );
+
+  let filteredCSV = header + '\n';
+  for (let i=1; i<campLines.length; i++) {
+    const v = parseCSVLine(campLines[i]);
+    const campName = iCamp >= 0 ? (v[iCamp]||'').replace(/"/g,'').trim() : '';
+    if (!campName || selectedCamps.has(campName)) filteredCSV += campLines[i] + '\n';
+  }
+
+  setStep(4);
+  sendToAI(filteredCSV, totals, [...selectedCamps]);
+}
+
+// ─── CONFIG ───────────────────────────────────────────────────────────────────
+const CLAUDE_ENDPOINT = 'https://tjdpjhhhygwtpyteirbn.supabase.co/functions/v1/claude-proxy';
+
+// ─── AI ───────────────────────────────────────────────────────────────────────
+async function sendToAI(csv, totals, camps) {
+  const lines   = csv.split('\n');
+  const preview = lines.slice(0, Math.min(lines.length, 800)).join('\n');
+
+  const periodEl = document.getElementById('period-text');
+  const periodo  = periodEl.textContent || '';
+
+  const campBreakdown = camps.map(name => {
+    const rows = parsedRows.filter(r => r.campaign === name);
+    const v = rows.reduce((s,r)=>s+r.verba, 0);
+    const l = rows.reduce((s,r)=>s+r.leads, 0);
+    const q = rows.reduce((s,r)=>s+r.qual,  0);
+    const s = rows.reduce((s,r)=>s+r.vendas,0);
+    const r = rows.reduce((s,r)=>s+r.receita,0);
+    return `  • ${name}: R$${v.toFixed(2)} gasto | ${Math.round(l)} leads | ${Math.round(q)} qualificados | ${Math.round(s)} vendas | R$${r.toFixed(2)} receita`;
+  }).join('\n');
+
+  const roas = totals.verba > 0 ? (totals.receita / totals.verba).toFixed(2) : 'N/D';
+  const cpl  = totals.leads  > 0 ? (totals.verba / totals.leads).toFixed(2)  : 'N/D';
+  const cplQ = totals.qual   > 0 ? (totals.verba / totals.qual).toFixed(2)   : 'N/D';
+  const cpv  = totals.vendas > 0 ? (totals.verba / totals.vendas).toFixed(2) : 'N/D';
+  const taxaLQ = totals.leads > 0 ? ((totals.qual / totals.leads)*100).toFixed(1) : 'N/D';
+  const taxaQV = totals.qual  > 0 ? ((totals.vendas / totals.qual)*100).toFixed(1) : 'N/D';
+
+  const prompt = `Você é um especialista sênior em Meta Ads para o mercado brasileiro, com foco em infoprodutos e perfumaria. Sua análise deve ser estratégica, direta e baseada exclusivamente nos dados fornecidos.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+CONTEXTO DA ANÁLISE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+${periodo ? `📅 ${periodo}` : ''}
+📂 Campanhas: ${camps.join(', ')}
+
+TOTAIS CONSOLIDADOS
+  Verba investida : R$ ${totals.verba.toFixed(2)}
+  Leads totais    : ${Math.round(totals.leads)}
+  Leads qualif.   : ${Math.round(totals.qual)}
+  Vendas          : ${Math.round(totals.vendas)}
+  Receita         : R$ ${totals.receita.toFixed(2)}
+
+MÉTRICAS DERIVADAS
+  CPL total       : R$ ${cpl}
+  CPL qualificado : R$ ${cplQ}
+  Custo por venda : R$ ${cpv}
+  ROAS            : ${roas}x
+  Taxa L→Q        : ${taxaLQ}%
+  Taxa Q→V        : ${taxaQV}%
+
+POR CAMPANHA
+${campBreakdown}
+
+DADOS RAW DO CSV (primeiras 800 linhas):
+${preview}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Gere um relatório detalhado com as seguintes seções. Use os números reais do CSV — nunca invente métricas.
+
+## 1. 📊 VISÃO GERAL DA CONTA
+Panorama completo: investimento total, alcance, impressões, frequência média, CTR, CPM, CPC, total de leads, CPA. Destaque se as métricas estão acima ou abaixo dos benchmarks brasileiros (CTR >1%, CPM <R$15, frequência <3).
+
+## 2. 🏆 RANKING DE CRIATIVOS
+Liste todos os anúncios com dados disponíveis em ordem de performance. Para cada um: nome/ID, investimento, leads gerados, CTR, CPL e um diagnóstico curto (o que está funcionando e por quê). Destaque o padrão dos top 3.
+
+## 3. ⚠️ ALERTAS E FADIGA
+Identifique especificamente: anúncios com CTR abaixo de 0,5%, frequência acima de 3, custo por resultado acima da média, e conjuntos de anúncios em "Learning Limited". Para cada alerta: qual é o problema e o que fazer.
+
+## 4. 💰 EFICIÊNCIA POR CAMPANHA E CONJUNTO
+Compare cada campanha: qual está com melhor ROAS, menor CPA, melhor qualidade de lead. Aponte onde o orçamento está sendo desperdiçado e onde deveria ser aumentado.
+
+## 5. 🎯 ANÁLISE DO FUNIL DE QUALIFICAÇÃO
+Detalhe cada etapa do funil com os números reais. Onde está o maior gargalo — atração (topo), qualificação (meio) ou fechamento (fundo)? Qual etapa tem maior alavancagem?
+
+## 6. 🔬 PADRÕES E INSIGHTS
+O que os dados revelam sobre o comportamento do público? Há padrões de dia/horário? Algum ângulo de criativo claramente superior? Qual hipótese vale testar a seguir?
+
+## 7. 🚀 PLANO DE AÇÃO — PRÓXIMAS 2 SEMANAS
+Liste 7 ações concretas ordenadas por impacto estimado. Para cada uma:
+- **AÇÃO:** o que fazer exatamente
+- **MOTIVO:** por que esse dado indica essa ação
+- **COMO:** passo a passo de implementação no Ads Manager
+- **IMPACTO ESPERADO:** métrica que deve melhorar e quanto
+
+## 8. 🎯 SCORE DE SAÚDE DA CONTA: XX/100
+Avalie separadamente: Estrutura (0-25) | Criativos (0-25) | Eficiência (0-25) | Qualidade de lead (0-25). Some e justifique cada nota em 1 linha.
+
+Seja cirúrgico. Cada insight deve apontar para uma ação. Se alguma coluna não estiver disponível no CSV, diga claramente e siga em frente.`;
+
+  try {
+    const res = await fetch(CLAUDE_ENDPOINT, {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        model:'claude-sonnet-4-20250514',
+        max_tokens:4000,
+        messages:[{role:'user',content:prompt}]
+      })
+    });
+
+    if (!res.ok) { const e=await res.json(); throw new Error(e.error?.message||'Erro na API'); }
+
+    const data = await res.json();
+    const text = data.content.map(b=>b.text||'').join('');
+
+    document.getElementById('meta-loading').style.display = 'none';
+    document.getElementById('period-bar').style.display   = 'flex';
+
+    const resultEl = document.getElementById('meta-result');
+    resultEl.style.display = 'block';
+    renderReport(text);
+    resultEl.scrollIntoView({behavior:'smooth',block:'start'});
+
+  } catch(err) {
+    document.getElementById('meta-loading').style.display = 'none';
+    document.getElementById('campaign-selector').style.display = 'block';
+    showError('Erro: ' + err.message);
+  }
+}
+
+function renderReport(text) {
+  let html = text
+    .replace(/^## (.+)$/gm,'<h3 class="rep-h3">$1</h3>')
+    .replace(/^### (.+)$/gm,'<strong>$1</strong><br>')
+    .replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')
+    .replace(/^- (.+)$/gm,'<li>$1</li>')
+    .replace(/(<li>[\s\S]*?<\/li>)+/g,m=>`<ul>${m}</ul>`)
+    .replace(/\n{2,}/g,'</p><p>');
+  document.getElementById('meta-report-content').innerHTML = `<p>${html}</p>`;
+}
+
+function resetDropzone() {
+  document.getElementById('meta-loading').style.display = 'none';
+  dropEl.style.display = 'flex';
+}
+
+function showError(msg) {
+  const el = document.getElementById('meta-error');
+  el.textContent = msg;
+  el.style.display = 'block';
+  setTimeout(()=>el.style.display='none', 6000);
+}
+</script>
+</body>
+</html>
