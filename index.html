@@ -484,7 +484,10 @@ function parseCSVLine(line) {
 
 function cleanNum(str) {
   if (!str) return NaN;
-  const s = str.replace(/[R$\s]/g,'').replace(/\./g,'').replace(',','.').trim();
+  let s = str.replace(/[R$\s]/g,'').trim();
+  if (s.includes(',')) {
+    s = s.replace(/\./g,'').replace(',','.');
+  }
   return parseFloat(s);
 }
 
