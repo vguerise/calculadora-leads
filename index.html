@@ -158,6 +158,9 @@
   .sheet-type-badge.conjunto { background:#ffab0012; border:1px solid #ffab0035; color:#ffd080; }
   .sheet-type-badge.campanha { background:#00e67612; border:1px solid #00e67635; color:#5fffb0; }
   .sheet-type-badge.desconhecido { background:#55555512; border:1px solid #55555535; color:#888; }
+  .context-box { width:100%; background:var(--surface2); border:1px solid var(--border); border-radius:8px; padding:12px 14px; color:var(--text); font-family:'DM Sans',sans-serif; font-size:13px; line-height:1.6; resize:vertical; min-height:90px; outline:none; transition:border-color .2s; }
+  .context-box:focus { border-color:var(--amber); }
+  .context-box::placeholder { color:var(--muted); font-size:12px; }
 
   .filled-badge { display:inline-flex; align-items:center; gap:5px; font-size:10px; padding:3px 8px; background:#2979ff15; border:1px solid #2979ff30; border-radius:20px; color:#5b9bd5; margin-left:auto; }
 
@@ -217,6 +220,15 @@
         <div class="load-step" id="ls4" data-label="🤖 Gerando análise IA..."></div>
       </div>
     </div>
+  </div>
+
+  <!-- CONTEXTO -->
+  <div class="card">
+    <div class="section-label">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--amber)" stroke-width="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+      Contexto da Campanha
+    </div>
+    <textarea id="context-input" class="context-box" placeholder="Descreva a situação atual: qual objetivo da campanha, o que já foi testado, gargalos percebidos, metas de curto prazo, restrições de orçamento, público-alvo, produto sendo anunciado... Quanto mais contexto, mais precisa a análise."></textarea>
   </div>
 
   <!-- INPUTS -->
@@ -705,14 +717,15 @@ function applySelection() {
   }
 
   setStep(4);
-  sendToAI(filteredCSV, totals, [...selectedCamps]);
+  const contexto = document.getElementById('context-input').value.trim();
+  sendToAI(filteredCSV, totals, [...selectedCamps], contexto);
 }
 
 // ─── CONFIG ───────────────────────────────────────────────────────────────────
 const CLAUDE_ENDPOINT = 'https://tjdpjhhhygwtpyteirbn.supabase.co/functions/v1/claude-proxy';
 
 // ─── AI ───────────────────────────────────────────────────────────────────────
-async function sendToAI(csv, totals, camps) {
+async function sendToAI(csv, totals, camps, contexto = '') {
   const lines   = csv.split('\n');
   const preview = lines.slice(0, Math.min(lines.length, 800)).join('\n');
 
@@ -737,7 +750,7 @@ async function sendToAI(csv, totals, camps) {
   const taxaLQ = totals.leads > 0 ? ((totals.qual / totals.leads)*100).toFixed(1) : 'N/D';
   const taxaQV = totals.qual  > 0 ? ((totals.vendas / totals.qual)*100).toFixed(1) : 'N/D';
 
-  const prompt = `Você é um especialista sênior em Meta Ads para o mercado brasileiro, com foco em infoprodutos e perfumaria. Sua análise deve ser estratégica, direta e baseada exclusivamente nos dados fornecidos.
+  const prompt = `Você é um especialista sênior em Meta Ads para o mercado brasileiro, com foco em infoprodutos e perfumaria. Sua análise deve ser estratégica, direta e baseada nos dados e no contexto fornecidos.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 CONTEXTO DA ANÁLISE
@@ -745,6 +758,7 @@ CONTEXTO DA ANÁLISE
 ${periodo ? `📅 ${periodo}` : ''}
 📊 Nível da planilha: ${nivelPlanilha}
 📂 Campanhas: ${camps.join(', ')}
+${contexto ? `\n📝 CONTEXTO FORNECIDO PELO ANUNCIANTE:\n${contexto}\n` : ''}
 
 TOTAIS CONSOLIDADOS
   Verba investida : R$ ${totals.verba.toFixed(2)}
@@ -768,37 +782,40 @@ DADOS RAW DO CSV (primeiras 800 linhas):
 ${preview}
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-Gere um relatório detalhado com as seguintes seções. Use os números reais do CSV — nunca invente métricas.
+Gere um relatório detalhado com as seguintes seções. Use os números reais do CSV — nunca invente métricas.${contexto ? ' Leve o contexto do anunciante em conta em TODAS as seções — adapte os diagnósticos e recomendações à situação real descrita.' : ''}
 
 ## 1. 📊 VISÃO GERAL DA CONTA
-Panorama completo: investimento total, alcance, impressões, frequência média, CTR, CPM, CPC, total de leads, CPA. Destaque se as métricas estão acima ou abaixo dos benchmarks brasileiros (CTR >1%, CPM <R$15, frequência <3).
+Panorama completo: investimento total, alcance, impressões, frequência média, CTR, CPM, CPC, total de leads, CPA. Destaque se as métricas estão acima ou abaixo dos benchmarks brasileiros (CTR >1%, CPM <R$15, frequência <3).${contexto ? ' Conecte os números ao contexto fornecido.' : ''}
 
 ## 2. 🏆 RANKING DE CRIATIVOS
-Liste todos os anúncios com dados disponíveis em ordem de performance. Para cada um: nome/ID, investimento, leads gerados, CTR, CPL e um diagnóstico curto (o que está funcionando e por quê). Destaque o padrão dos top 3.
+Liste todos os anúncios com dados disponíveis em ordem de performance. Para cada um: nome/ID, investimento, leads gerados, CTR, CPL e um diagnóstico curto. Destaque o padrão dos top 3.
 
 ## 3. ⚠️ ALERTAS E FADIGA
-Identifique especificamente: anúncios com CTR abaixo de 0,5%, frequência acima de 3, custo por resultado acima da média, e conjuntos de anúncios em "Learning Limited". Para cada alerta: qual é o problema e o que fazer.
+Identifique: CTR abaixo de 0,5%, frequência acima de 3, custo por resultado acima da média, conjuntos em "Learning Limited". Para cada alerta: problema e ação corretiva.
 
 ## 4. 💰 EFICIÊNCIA POR CAMPANHA E CONJUNTO
-Compare cada campanha: qual está com melhor ROAS, menor CPA, melhor qualidade de lead. Aponte onde o orçamento está sendo desperdiçado e onde deveria ser aumentado.
+Compare cada campanha: ROAS, CPA, qualidade de lead. Onde o orçamento está sendo desperdiçado e onde deve ser aumentado.
 
 ## 5. 🎯 ANÁLISE DO FUNIL DE QUALIFICAÇÃO
-Detalhe cada etapa do funil com os números reais. Onde está o maior gargalo — atração (topo), qualificação (meio) ou fechamento (fundo)? Qual etapa tem maior alavancagem?
+Detalhe cada etapa com os números reais. Onde está o maior gargalo — topo, meio ou fundo? Qual etapa tem maior alavancagem?
 
 ## 6. 🔬 PADRÕES E INSIGHTS
-O que os dados revelam sobre o comportamento do público? Há padrões de dia/horário? Algum ângulo de criativo claramente superior? Qual hipótese vale testar a seguir?
+O que os dados revelam sobre o comportamento do público? Padrões de dia/horário, ângulo de criativo superior, próxima hipótese a testar.${contexto ? ' Cruze com o contexto do anunciante para identificar causas prováveis.' : ''}
 
 ## 7. 🚀 PLANO DE AÇÃO — PRÓXIMAS 2 SEMANAS
 Liste 7 ações concretas ordenadas por impacto estimado. Para cada uma:
-- **AÇÃO:** o que fazer exatamente
-- **MOTIVO:** por que esse dado indica essa ação
-- **COMO:** passo a passo de implementação no Ads Manager
-- **IMPACTO ESPERADO:** métrica que deve melhorar e quanto
+- **AÇÃO:** o que fazer exatamente no Ads Manager
+- **MOTIVO:** qual dado ou contexto indica essa ação
+- **PRAZO ESPERADO DE RESULTADO:** quantos dias até ver impacto mensurável (ex: 3–5 dias, 7–10 dias) e por quê leva esse tempo (aprendizado do algoritmo, ciclo de decisão do lead, etc.)
+- **IMPACTO ESPERADO:** qual métrica deve melhorar e em quanto (ex: CPL reduz ~20%, CTR sobe de 1,2% para 1,8%)
 
-## 8. 🎯 SCORE DE SAÚDE DA CONTA: XX/100
+## 8. ⏱️ DIAGNÓSTICO DE TIMING
+Com base nos dados e no contexto: a campanha está em fase de aprendizado, estabilização ou escala? O que fazer AGORA (hoje), em 7 dias e em 30 dias para maximizar resultados? Se houver contexto de urgência, adapte o prazo.
+
+## 9. 🎯 SCORE DE SAÚDE DA CONTA: XX/100
 Avalie separadamente: Estrutura (0-25) | Criativos (0-25) | Eficiência (0-25) | Qualidade de lead (0-25). Some e justifique cada nota em 1 linha.
 
-Seja cirúrgico. Cada insight deve apontar para uma ação. Se alguma coluna não estiver disponível no CSV, diga claramente e siga em frente.`;
+Seja cirúrgico. Cada insight deve apontar para uma ação com prazo realista. Se alguma coluna não estiver disponível no CSV, diga claramente e siga em frente.`;
 
   try {
     const res = await fetch(CLAUDE_ENDPOINT, {
